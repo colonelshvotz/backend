@@ -22,41 +22,17 @@ import random
 
 import uvicorn
 
-import base64
-
-client = OpenAI(api_key=os.environ['StoryT'])
+client = OpenAI(api_key=os.environ['StoryT'])  # Replace with your API key
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://frontend-rho-snowy-74.vercel.app", "http://localhost:3000"
-    ],
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.get("/")
-async def root():
-    return {
-        "message":
-        "Welcome to the FastAPI backend!",
-        "endpoints": [
-            "/load-book",
-            "/start",
-            "/continue",
-            "/generate-moment-image",
-            "/export-story",
-            "/test-chapter",
-            "/developer/trait-scores",
-            "/developer/empathy-scores",
-            "/save-progress",
-        ]
-    }
-
 
 # Simple session storage
 session = {
@@ -129,12 +105,11 @@ def create_chapter_summary_and_story(character_name: str, genre: str,
         raise ValueError("No story history found for this character.")
 
     # Filter out /game and user inputs
-    #story_lines = [
-       # line for line in history if not line.strip().startswith(">")
-       # and not line.strip().lower().startswith("/game")
-    #]
-    #full_log = "\n".join(story_lines)
-    full_log = history
+    story_lines = [
+        line for line in history if not line.strip().startswith(">")
+        and not line.strip().lower().startswith("/game")
+    ]
+    full_log = "\n".join(story_lines)
 
     # Ask GPT to summarize in 1 sentence
     summary_prompt = (
@@ -158,8 +133,8 @@ def create_chapter_summary_and_story(character_name: str, genre: str,
     rewrite_prompt = (
         f"Rewrite the following story log as a third-person limited past-tense narrative. "
         f"The protagonist is named {character_name}. Genre: {genre}. "
-        #f"Only include what {character_name} could reasonably know or perceive. "
-        f"Describe other characters’ actions and dialogue in vivid, cinematic prose. You are an expert, literary author."
+        f"Only include what {character_name} could reasonably know or perceive. "
+        f"Describe other characters’ actions and dialogue in vivid, cinematic prose. "
         f"Remove all second-person references, user prompts, and transform it into polished storybook prose. "
         f"Here is the story log:\n\n{full_log}")
 
@@ -174,7 +149,7 @@ def create_chapter_summary_and_story(character_name: str, genre: str,
 
     prose_text = prose_response.choices[0].message.content.strip(
     ) if prose_response.choices[
-        0].message.content else "Failed to generate rewritten story."
+        0].message.content else "Failed to         generate rewritten story."
 
     return {"summary": summary_text, "prose": prose_text}
 
@@ -199,25 +174,24 @@ def save_chapter_to_book(book_title: str, character_name: str, summary: str,
         return
 
     # Filter out /game commands
-    #filtered_history = []
-    #skip_next = False
-    #for line in history:
-       # if line.strip().lower().startswith("/game") or skip_next:
-        #    skip_next = not skip_next
-        #    continue
-       # filtered_history.append(line)
+    filtered_history = []
+    skip_next = False
+    for line in history:
+        if line.strip().lower().startswith("/game") or skip_next:
+            skip_next = not skip_next
+            continue
+        filtered_history.append(line)
 
-   # full_log = "\n".join(filtered_history)
+    full_log = "\n".join(filtered_history)
 
     # Get third-person version
-    # Removed filtered history, just using full history
     prompt_rewrite = (
         f"Rewrite the following story log as a third-person limited past-tense narrative. "
         f"The protagonist is named {character_name}. Genre: {genre}. "
         f"Only include what {character_name} could reasonably know or perceive. "
         f"Describe other characters’ actions and dialogue in vivid, cinematic prose. "
-        f"Remove all second-person references, user prompts, and transform it into polished storybook prose. Write like an expert, published author."
-        f"Here is the story log:\n\n{history}")
+        f"Remove all second-person references, user prompts, and transform it into polished storybook prose. "
+        f"Here is the story log:\n\n{full_log}")
 
     response_rewrite = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -501,28 +475,28 @@ def extract_suspects_from_story(story_text: str) -> list:
 
 
 #Inventory concept - doesn't really work because the story engine lets you have any item you want
-#def generate_starting_inventory(genre: str) -> list:
-#    prompt = (
-#        f"Generate a short list of 3 unique starting inventory items #appropriate for a character "
-#        f"in a {genre} setting. Keep the list compact, with only the item names. "
-#        f"Do not include descriptions or numbers.")
+def generate_starting_inventory(genre: str) -> list:
+    prompt = (
+        f"Generate a short list of 3 unique starting inventory items appropriate for a character "
+        f"in a {genre} setting. Keep the list compact, with only the item names. "
+        f"Do not include descriptions or numbers.")
 
-#    response = client.chat.completions.create(
-#        model="gpt-3.5-turbo",
-#        messages=[{
-#            "role": "user",
-#            "content": prompt
-#        }],
-#        temperature=0.7,
-#    )
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{
+            "role": "user",
+            "content": prompt
+        }],
+        temperature=0.7,
+    )
 
-#    text = response.choices[0].message.content.strip(
-#    ) if response.choices[0].message.content is not None else ""
-#    items = [
-#        item.strip("-• ").strip() for item in text.splitlines()
-#        if item.strip()
-#    ]
-#    return items
+    text = response.choices[0].message.content.strip(
+    ) if response.choices[0].message.content is not None else ""
+    items = [
+        item.strip("-• ").strip() for item in text.splitlines()
+        if item.strip()
+    ]
+    return items
 
 
 def create_or_load_character(book_title: str, character_name: str, genre: str,
@@ -534,7 +508,7 @@ def create_or_load_character(book_title: str, character_name: str, genre: str,
         new_character = {
             "name": character_name,
             "description": description,
-            #"inventory": generate_starting_inventory(genre),
+            "inventory": generate_starting_inventory(genre),
             "reputation": {},
             "relationships": {},
             "empathy_scores": [],
@@ -626,8 +600,6 @@ def generate_story(genre, user_input=None, character_name=None):
                 f"You are beginning an immersive, second-person interactive story in the genre '{genre}'. "
                 f"The main character’s name is {character_name}, but narration should use 'you' and stay in second-person. "
                 f"{idea_part} Start with cinematic sensory detail. End with a dramatic decision or question."
-                f"Begin with a cinematic opening — a scene full of tension, color, and implied conflict. Introduce at least one thing that seems off, suspicious, or dangerous. "
-                f"Include micro details that make the world specific and memorable. End with a dramatic choice or uncomfortable question."
                 f"{previously}"  # <-- added here to help the AI avoid past storylines
             )
 
@@ -637,19 +609,18 @@ def generate_story(genre, user_input=None, character_name=None):
             f"This is an ongoing {genre} story. The character's name is {character_name}. "
             f"Use immersive second-person narration. Previous context:\n{history}\n"
             f"Current story goal:\n{plot_step}\n\n"  #plot skeleton add
-            f"The player says: '{user_input}'. DO NOT start the story with this idea, but gradually build to it.  Continue the story and end with a prompt."
+            f"The player says: '{user_input}'. Continue the story and end with a prompt."
         )
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-3.5-turbo",
         messages=[{
             "role":
             "system",
             "content":
-            ("You are an expert storyteller guiding the player through an immersive, interactive narrative. "
+            ("You are an AI storyteller guiding the player through an immersive, interactive narrative. "
              "Your role is to narrate vivid, emotionally rich, second-person prose. The player experiences the world directly — never refer to 'the player'; simply describe what 'you' see, hear, feel, or do. "
-             "Your storytelling should feel cinematic and visceral. Use micro worldbuilding to describe textures, sounds, smells, and background characters. Let the world feel lived-in, not generic. Every paragraph should include at least one fun, unexpected detail — a strange character quirk, an overheard rumor, or an eerie object in the room."
-             "Build tension constantly. Give every scene a question or danger — something that leaves the player slightly uneasy. When conflict arises, escalate it with consequences. Minor victories should reveal deeper mysteries or hidden costs. Character dialogue should hint at hidden motives, lies, or vulnerabilities."
+             "Use evocative, cinematic language. Every scene should pull the player deeper into the world. Describe the environment with sensory details, making each setting feel lived-in and real. "
              "The story should follow principles of professional screenwriting and narrative design:\n"
              "- Stories are about conflict and the human desire to resolve it\n"
              "- Conflict can be generated when characters do the wrong thing for the right reason\n"
@@ -658,29 +629,24 @@ def generate_story(genre, user_input=None, character_name=None):
              "- The hero’s hope must always present a better path forward, even when unclear\n"
              "- Give the player minor victories and setbacks to shape emotional arcs\n"
              "- Rarely, a bad decision may result in the player’s death — if so, allow them to restart or rewind\n"
+             "- The story must always end decisively — tying up major threads and declaring 'The End.' when the main arc of the story has finished\n"
              "- Do not break the fourth wall.\n"
              "- Avoid any sexual content. If the player attempts to introduce it, steer away naturally without drawing attention.\n"
              "- Mature content such as violence or death is allowed, but respect tone and genre.\n"
              "\n"
-             "DO NOT gloss over story moments such as 'the journey was long with unexpected twists and turns'.  Turn that journey into an adventure for the user and delve into it even if it diverts from the main story.\n"
-             "DO NOT be vague with introducing characters or villains.  Be specific about descriptions of clothing and what type of creature it is: human, mythological like elf or giant, or anything else."
-             "Randomly make the user fail at something they attempt to do.  Failure lets the user improvise new solutions."
-             "Roughly 1 in 5 items and/or offerings NPCs give to the user's character should be traps or at least affect the user negatively."
              "The story world is persistent. Characters, places, and events from earlier moments may return later, changed by time. If a user returns to this world later, they may start in the future.\n"
              "NPCs have motivations, goals, and memory. They may betray the player if their goals diverge, but the player may find clues to prevent betrayal.\n"
              "Some decisions should be open-ended (e.g., 'Where do you want to search?' or 'What do you want to say?').\n"
-             "At every scene's end, ask the player what they want to do next."
+             "Some decisions should be time-limited. If the player hesitates repeatedly, tension should rise, and the world may act without them.\n"
+             "At every scene's end, ask the player what they want to do next. Always conclude with an immersive question or compelling moment of choice."
              f"\n\nNPCs in this world remember past interactions. Here are their current memories:\n{npc_memory_text}"
-             "If the story is approaching the final act, you must prioritize narrative closure. Begin resolving major plotlines, allow the character to succeed or fail meaningfully, and guide the story to a full, emotionally satisfying ending.\n"
-             "Once the story naturally concludes, write a final sentence ending the narrative and add 'End of Chapter.'\n"
-             "Do not invent new conflicts once the story is ready to end."
              )
         }, {
             "role": "user",
             "content": prompt
         }],
-        temperature=0.9,
-        max_tokens=500)
+        temperature=0.85,
+        max_tokens=350)
 
     story = response.choices[0].message.content.strip(
     ) if response.choices[0].message.content else "No story generated."
@@ -901,7 +867,7 @@ def generate_plot_skeleton(genre: str, character_name: str,
         f"[\"Step 1 description\", \"Step 2 description\", ...]")
 
     response = client.chat.completions.create(
-        model="gpt-4o",  # or 3.5 if needed
+        model="gpt-4",  # or 3.5 if needed
         messages=[{
             "role": "user",
             "content": prompt
@@ -930,7 +896,7 @@ def maybe_advance_plot_step(story_text: str):
         f"Has this plot objective been clearly fulfilled in the story? "
         f"Respond with ONLY 'yes' or 'no'.")
 
-    response = client.chat.completions.create(model="gpt-4o",
+    response = client.chat.completions.create(model="gpt-3.5-turbo",
                                               messages=[{
                                                   "role": "user",
                                                   "content": prompt
@@ -1033,7 +999,7 @@ def continue_story(data: ContinueRequest):
 
     #Test feature to end the game and create a chapter
     if user_input.lower().strip() == "/game end":
-        story = "End of Chapter."
+        story = "The End."
         session["history"].append(story)
 
         # Create and save the chapter
@@ -1047,10 +1013,10 @@ def continue_story(data: ContinueRequest):
             print(f"Error generating chapter: {e}")
             return {
                 "story":
-                "End of Chapter. (But there was a problem saving the chapter.)"
+                "The End. (But there was a problem saving the chapter.)"
             }
 
-        return {"story": "End of Chapter."}
+        return {"story": "The End."}
 
     if session["history"] and session["history"][-1].strip() == "The End.":
         return {
@@ -1098,7 +1064,7 @@ def continue_story(data: ContinueRequest):
     character_data = {
         "name": session.get("character_name"),
         "description": session.get("character_description"),
-        #"inventory": session.get("inventory", []),
+        "inventory": session.get("inventory", []),
         "reputation": session.get("reputation", {}),
         "relationships": session.get("relationships", {}),
         "history": session.get("history", []),
@@ -1116,19 +1082,9 @@ def continue_story(data: ContinueRequest):
     if traits:
         character_data = load_character(book_title, character_name)
         for trait, score in traits.items():
-            # Save to top-level (if still used elsewhere)
             character_data.setdefault(trait, []).append(score)
-
-            # ✅ Also save to trait_scores dict
-            if "trait_scores" not in character_data:
-                character_data["trait_scores"] = {}
-            character_data["trait_scores"].setdefault(trait, []).append(score)
-            
-            
             #test to see if they're being recorded
             print(f"{trait}: {score}")
-
-    
     #skeleton outline point save in character data
     character_data["current_step"] = session.get("current_step", 0)
 
@@ -1139,7 +1095,7 @@ def continue_story(data: ContinueRequest):
     character_data["current_step"] = 0
 
     #Normal feature to end the story and create a chapter
-    if story.strip().endswith("End of Chapter."):
+    if story.strip().endswith("The End."):
         chapter_info = create_chapter_summary_and_story(
             character_name, genre, session["history"])
         save_chapter_to_book(book_title, character_name,
@@ -1159,7 +1115,7 @@ def save_progress():
     character_data = {
         "name": character_name,
         "description": session.get("character_description", ""),
-        #"inventory": session.get("inventory", []),
+        "inventory": session.get("inventory", []),
         "reputation": session.get("reputation", {}),
         "relationships": session.get("relationships", {}),
         "empathy_scores": session.get("empathy_scores", []),
@@ -1234,7 +1190,7 @@ def load_book_route(data: BookLoadRequest):
     session["character_description"] = data.character_description
     session["book"] = book
     session["history"] = character_data.get("history", [])
-    #session["inventory"] = character_data.get("inventory", [])
+    session["inventory"] = character_data.get("inventory", [])
     session["reputation"] = character_data.get("reputation", {})
     session["relationships"] = character_data.get("relationships", {})
     session["story_idea"] = data.story_idea or ""
@@ -1290,16 +1246,15 @@ def export_story():
     history = session.get("history", [])
 
     # Step 1: Filter out /game commands and responses
-    # This step messes up the Word export, using the full session history in the prompt instead of filtered history.
-    #filtered_history = []
-    #skip_next = False
-    #for line in history:
-        #if line.strip().lower().startswith("/game") or skip_next:
-            #skip_next = not skip_next  # Skip the AI's system response too
-            #continue
-        #filtered_history.append(line)
+    filtered_history = []
+    skip_next = False
+    for line in history:
+        if line.strip().lower().startswith("/game") or skip_next:
+            skip_next = not skip_next  # Skip the AI's system response too
+            continue
+        filtered_history.append(line)
 
-    #full_log = "\n".join(filtered_history)
+    full_log = "\n".join(filtered_history)
 
     # Step 2: Ask GPT to rewrite it into 3rd-person past tense
     prompt = (
@@ -1308,7 +1263,7 @@ def export_story():
         f"Only include what {character_name} could reasonably know or perceive. "
         f"Describe other characters’ actions and dialogue in vivid, cinematic prose. "
         f"Remove all second-person references, user prompts, and transform it into polished storybook prose. "
-        f"Here is the story log:\n\n{history}")
+        f"Here is the story log:\n\n{full_log}")
 
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -1376,7 +1331,8 @@ def get_chapters(book_title: str):
 @app.get("/export-chapter/{book_title}/{chapter_index}")
 def export_chapter(book_title: str, chapter_index: int):
     book = load_book_data(book_title)
-    if not book or "chapters" not in book or chapter_index >= len(book["chapters"]):
+    if not book or "chapters" not in book or chapter_index >= len(
+            book["chapters"]):
         raise HTTPException(status_code=404, detail="Chapter not found")
 
     chapter = book["chapters"][chapter_index]
@@ -1384,55 +1340,28 @@ def export_chapter(book_title: str, chapter_index: int):
     genre = book.get("genre", "Unknown")
     story_text = chapter.get("story", "")
 
-    # ✅ REWRITE the raw story into third-person narrative
-    prompt = (
-        f"Rewrite the following story as a third-person limited past-tense narrative. "
-        f"The protagonist is named {character_name}. Genre: {genre}. "
-        f"Only include what {character_name} could reasonably know or perceive. "
-        f"Describe other characters’ actions and dialogue in vivid, cinematic prose. "
-        f"Remove second-person references and reframe as polished storybook prose.\n\n"
-        f"{story_text}"
-    )
-
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-        )
-        rewritten_story = response.choices[0].message.content.strip() if response.choices[0].message.content else ""
-    except Exception as e:
-        print("GPT rewrite failed:", e)
-        rewritten_story = story_text  # fallback
-
     doc = Document()
     doc.add_heading(f"{character_name}'s Chapter {chapter_index + 1}", level=0)
     doc.add_paragraph(f"Genre: {genre}")
     doc.add_paragraph()  # spacer
 
-    for para in rewritten_story.split("\n\n"):
-        paragraph = doc.add_paragraph()
+    for para in story_text.split("\n\n"):
+        paragraph = doc.add_paragraph()  # Don't style the paragraph directly
         run = paragraph.add_run(para.strip())
-        run.font.size = Pt(12)
-        run.font.name = 'Georgia'
+        font = run.font
+        font.name = 'Georgia'
+        font.size = Pt(12)
 
-    # --- ✅ Improved filename ---
-    safe_title = book_title.replace(" ", "_")
-    safe_character = character_name.replace(" ", "_")
-    filename = f"{safe_title}_{safe_character}_Chapter_{chapter_index + 1}.docx"
-
+    filename = f"chapter_export_{uuid.uuid4().hex}.docx"
     filepath = os.path.join("exports", filename)
     os.makedirs("exports", exist_ok=True)
     doc.save(filepath)
 
-    with open(filepath, "rb") as f:
-        file_content = f.read()
-        encoded_file = base64.b64encode(file_content).decode("utf-8")
-
-    return {
-        "filename": filename,
-        "filedata": encoded_file,
-    }
+    return FileResponse(
+        filepath,
+        media_type=
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename=filename)
 
 
 @app.post("/test-chapter")

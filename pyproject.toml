@@ -4,4 +4,13 @@ version = "0.1.0"
 description = ""
 authors = ["Your Name <you@example.com>"]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "docx==0.2.4",
+    "fastapi==0.115.6",
+    "fonts==0.0.3",
+    "fonttools==4.55.2",
+    "openai==1.57.0",
+    "pydantic==2.10.3",
+    "python-docx-replace==0.4.4",
+    "uvicorn==0.32.1",
+]
