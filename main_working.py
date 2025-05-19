@@ -24,12 +24,6 @@ import uvicorn
 
 import base64
 
-from typing import Dict, List
-
-from fastapi import Query
-
-import re
-
 client = OpenAI(api_key=os.environ['StoryT'])
 
 app = FastAPI()
@@ -566,37 +560,14 @@ def generate_story(genre, user_input=None, character_name=None):
     character_name = character_name or session.get("character_name",
                                                    "Your character")
     book_title = session.get("book", {}).get("title", "")
-    should_wrap_up = session.get("ready_to_end", False)
-
-
 
     # Retrieve current plot step from skeleton
-    #plot_step = ""
-    skeleton = session.get("plot_skeleton", {})
+    plot_step = ""
+    skeleton = session.get("plot_skeleton", [])
     step = session.get("current_step", 0)
 
-    # 🛠️ Migrate old list-style skeletons to dict format if needed
-    if isinstance(skeleton, list):
-        skeleton = {i + 1: s for i, s in enumerate(skeleton)}
-        session["plot_skeleton"] = skeleton
-        session["story_framework"] = skeleton
-
-
-    #step_key = str(step + 1)  # Because your keys are "1", "2", etc.
-    print("📋 skeleton keys:", list(skeleton.keys()))
-    print("🔢 current step:", step)
-    print("📦 Type of skeleton:", type(skeleton))
-    print("📋 Full skeleton contents:", skeleton)
-
-
-
-    #plot_step is always blank in the print.  Need to understand why the dictionary isn't being accessed properly.
-    plot_step = skeleton.get(step +1, "")
-    print(f"🎬 Using plot step {step +1}: {plot_step}")
-
-
-
-
+    if 0 <= step < len(skeleton):
+        plot_step = skeleton[step]
 
     #NPC loads their relationship to user's characters
     npc_memories = load_npc_memory(book_title, character_name)
@@ -665,22 +636,9 @@ def generate_story(genre, user_input=None, character_name=None):
         prompt = (
             f"This is an ongoing {genre} story. The character's name is {character_name}. "
             f"Use immersive second-person narration. Previous context:\n{history}\n"
-            f"Current story goal:\n{plot_step}, this is meant to be the plot you're organically targeting.\n\n" #plot skeleton add
+            f"Current story goal:\n{plot_step}\n\n"  #plot skeleton add
             f"The player says: '{user_input}'. DO NOT start the story with this idea, but gradually build to it.  Continue the story and end with a prompt."
         )
-        if should_wrap_up:
-            prompt += (
-            "\n\n⚠️ Important: This is the final stage of the story. Begin resolving major conflicts. "
-            "Guide the narrative to a meaningful, emotional conclusion. "
-            "If the story is approaching the final act, you must prioritize narrative closure. Begin resolving major plotlines, allow the character to succeed or fail meaningfully, and guide the story to a full, emotionally satisfying ending.\n"
-            "Do not invent new conflicts once the story is ready to end."
-            "When appropriate, write the final line of the story and end with 'End of Chapter.'"
-            "DO NOT prompt what the user wants to do after that, the final text sent to user is 'End of Chapter.'"
-    )
-
-    #debug step if should_wrap_up is working
-    if should_wrap_up:
-        print("📘 Story is in final act. Wrapping up.")
 
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -695,6 +653,7 @@ def generate_story(genre, user_input=None, character_name=None):
              "The story should follow principles of professional screenwriting and narrative design:\n"
              "- Stories are about conflict and the human desire to resolve it\n"
              "- Conflict can be generated when characters do the wrong thing for the right reason\n"
+             "- Structure is based on the three-act format, but the player may deviate organically. The character starts in stasis, their lives have been unchanged for years leading up to this first moment.  Then they experience an event that will call them to action, something that promises an adventure.  Then the actions of the story drive the user to either a big win or a big loss.  Then the bad guys or bad element is hot on thier tail, which drives them to another big loss.  Then they see a final big bad boss that they'll have to defeat.  They have to mount a final offensive to slip past defenses or fight past defenses.  Then defeat the final big bad boss, thus ending the story.\n"
              "- Early choices should promise adventure; later choices should drive toward resolution or disaster\n"
              "- The hero’s hope must always present a better path forward, even when unclear\n"
              "- Give the player minor victories and setbacks to shape emotional arcs\n"
@@ -712,19 +671,21 @@ def generate_story(genre, user_input=None, character_name=None):
              "Some decisions should be open-ended (e.g., 'Where do you want to search?' or 'What do you want to say?').\n"
              "At every scene's end, ask the player what they want to do next."
              f"\n\nNPCs in this world remember past interactions. Here are their current memories:\n{npc_memory_text}"
-
+             "If the story is approaching the final act, you must prioritize narrative closure. Begin resolving major plotlines, allow the character to succeed or fail meaningfully, and guide the story to a full, emotionally satisfying ending.\n"
+             "Once the story naturally concludes, write a final sentence ending the narrative and add 'End of Chapter.'\n"
+             "Do not invent new conflicts once the story is ready to end."
              )
         }, {
             "role": "user",
             "content": prompt
         }],
         temperature=0.9,
-        max_tokens=550,
-        presence_penalty=1.2,  # Encourage novelty
-        frequency_penalty=0.2  # Reduce exact repetition
-    )
+        max_tokens=500)
 
-    return response.choices[0].message.content
+    story = response.choices[0].message.content.strip(
+    ) if response.choices[0].message.content else "No story generated."
+    return story
+
 
 def handle_game_command(command: str) -> str:
     command = command.lower()
@@ -929,16 +890,15 @@ def editor_enhance_story(raw_story: str, genre: str,
 
 
 #create plot outline to give users ability to return to same spot and give AI structure to story
-def generate_plot_skeleton(genre: str, character_name: str, story_idea: str) -> dict:
+def generate_plot_skeleton(genre: str, character_name: str,
+                           story_idea: str) -> list:
     prompt = (
-        f"You are a master storyteller. Create a 7-step structured plot skeleton for a chapter in a story. "
+        f"You are a master storyteller. Create a 5–7 step skeleton plot structure for a story. "
         f"The genre is {genre}, and the main character is {character_name}. "
         f"The story idea is: {story_idea or 'Invent your own.'} "
-        f"- Structure of the outline is based on the three-act format, the character starts in stasis, then they experience an event that will call them to action, something that promises an adventure.  Then the actions of the story drive the user to either a big win or a big loss.  Then the bad guys or bad element is hot on thier tail, which drives them to a big loss.  Then they see a final big bad boss that they'll have to defeat OR final challenge to overcome such as averting disaster or climbing over an obstacle.  They must prepare for their encounter.  Then defeat the final big bad boss or overcome the final obstacle, thus ending the story.\n"
-        f"Sometimes the final obstacle can be left to the next chapter to act as a cliffhanger at the end of this episode."
-        f"Return ONLY a JSON object like this (with keys as integers):\n"
-        '{\n  "1": "Opening event...",\n  "2": "Next step...",\n  ...\n  "7": "Final climax or resolution."\n}'
-    )
+        f"Each step should be a brief 1-2 sentence description of a major plot event or turning point. "
+        f"Format as a numbered JSON list like:\n"
+        f"[\"Step 1 description\", \"Step 2 description\", ...]")
 
     response = client.chat.completions.create(
         model="gpt-4o",  # or 3.5 if needed
@@ -949,98 +909,42 @@ def generate_plot_skeleton(genre: str, character_name: str, story_idea: str) -> 
         temperature=0.7,
     )
 
-    raw = response.choices[0].message.content.strip()
-    print("🧾 Raw GPT output:", raw)
-
-    try:
-        raw_json = json.loads(response.choices[0].message.content.strip())
-
-        # Convert keys from strings to integers
-        skeleton_dict = {int(k): v for k, v in raw_json.items()}
-
-        session["plot_skeleton"] = skeleton_dict
-        session["story_framework"] = skeleton_dict
-        session["current_step"] = 0
-        print(f"✅ Stored structured skeleton with {len(skeleton_dict)} steps.")
-        return skeleton_dict
-    except Exception as e:
-        print("❌ Failed to parse structured skeleton:", e)
-        return {}
-
+    return json.loads(
+        response.choices[0].message.content
+    ) if response.choices[0].message.content is not None else []
 
 
 #to advance the skeleton to the next plot point for saves and story structure
 def maybe_advance_plot_step(story_text: str):
-    try:
-        step = session.get("current_step")
-        framework = session.get("story_framework")
-        total_steps = len(framework)
-        print(f"step: {step}")
-        print(f"framework: {len(framework)}")
+    skeleton = session.get("plot_skeleton", [])
+    step = session.get("current_step", 0)
 
+    if not skeleton or step >= len(skeleton):
+        return  # Nothing to advance
 
+    current_step_text = skeleton[step]
+    prompt = (
+        f"The following is a story segment and a current plot objective.\n\n"
+        f"Objective: {current_step_text}\n\n"
+        f"Story Segment:\n{story_text}\n\n"
+        f"Has this plot objective been clearly fulfilled in the story? "
+        f"Respond with ONLY 'yes' or 'no'.")
 
-        if total_steps == 0:
-            print("⚠️ No plot skeleton defined.")
-            return
+    response = client.chat.completions.create(model="gpt-4o",
+                                              messages=[{
+                                                  "role": "user",
+                                                  "content": prompt
+                                              }],
+                                              temperature=0.3,
+                                              max_tokens=10)
 
-        current_key = step + 1  # Step 0 → key "1", Step 1 → key "2", etc.
-
-        if current_key not in framework:
-            print(f"⚠️ Step {current_key} not found in framework.")
-            session["ready_to_end"] = True
-            return
-
-        current_step_description = framework.get(current_key, "")
-
-        step_check_prompt = f""" You are a function analyzing a story to test whether it has reached certain steps in its outline and is ready to progress to the next plot step.
-Story so far:
-{story_text}
-
-Current plot step: {current_step_description}
-
-Has the story so far ecompassed something similar to the current plot step in terms of a story-telling formula? 
-Reply ONLY with "Yes" or "No". No explanation.
-"""
-
-        step_response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": step_check_prompt}],
-            temperature=0.3,
-            max_tokens=10,
-        )
-        #COULD WE PASS a prompt to the generate_story to get it back on track or change it to match the new outline?
-        #Do we generate a new outline if we're way off?
-
-        decision = step_response.choices[0].message.content.strip().lower()
-        print(f"Decision from GPT: {decision}")
-
-        if "yes" in decision:
-            session["current_step"] = step + 1
-            print(f"✅ Advancing to step {session['current_step']}")
-
-        else:
-            print("⏳ Staying on current step.")
-
-        # If we're past the last step, signal wrap-up
-        if session["current_step"] >= total_steps:
-            session["ready_to_end"] = True
-            print("✅ Story has reached the final stage. Ready to end.")
-
-    except Exception as e:
-        print("❌ Error in maybe_advance_plot_step:", e)
-
-
-
-
-
-
-
-
+    decision = response.choices[0].message.content.strip().lower(
+    ) if response.choices[0].message.content is not None else ""
+    if decision.startswith("yes"):
+        session["current_step"] = step + 1
 
 
 # Start new story — generate image and return intro + image
-# /start has currently been bypassed for /load-book
 @app.post("/start")
 def start_story(data: StartRequest):
     session["genre"] = data.genre
@@ -1219,12 +1123,12 @@ def continue_story(data: ContinueRequest):
             if "trait_scores" not in character_data:
                 character_data["trait_scores"] = {}
             character_data["trait_scores"].setdefault(trait, []).append(score)
-
-
+            
+            
             #test to see if they're being recorded
             print(f"{trait}: {score}")
 
-
+    
     #skeleton outline point save in character data
     character_data["current_step"] = session.get("current_step", 0)
 
@@ -1320,29 +1224,10 @@ def load_book_route(data: BookLoadRequest):
     # Load or create character and their inventory
 
     character_data = create_or_load_character(
-    book_title=data.title,
-    character_name=data.character_name,
-    genre=book["genre"],
-    description=data.character_description or ""
-)
-
-    # 🧱 Generate new plot skeleton for fresh character
-    #if not character_data.get("plot_skeleton"):  # Only generate if not already present
-
-    #It should regenerate a new outline every time you log in.
-    skeleton = generate_plot_skeleton(book["genre"], data.character_name, data.story_idea or "")
-    session["plot_skeleton"] = skeleton
-    session["story_framework"] = skeleton
-    session["current_step"] = 0
-    #else:
-        # If already exists, load it into session
-        #session["plot_skeleton"] = character_data["plot_skeleton"]
-        #session["story_framework"] = character_data["plot_skeleton"]
-        #session["current_step"] = character_data.get("current_step", 0)
-
-    print("🧠 Plot skeleton loaded:", session["plot_skeleton"])
-
-
+        book_title=data.title,
+        character_name=data.character_name,
+        genre=book["genre"],
+        description=data.character_description or "")
     # Store session
     session["genre"] = book["genre"]
     session["character_name"] = data.character_name
@@ -1355,17 +1240,10 @@ def load_book_route(data: BookLoadRequest):
     session["story_idea"] = data.story_idea or ""
     session["let_ai_decide"] = data.let_ai_decide
     session["character"] = character_data
-    session["empathy_scores"] = character_data.get("empathy_scores", []) 
-    #session["plot_skeleton"] = character_data.get("plot_skeleton", [])
-    #session["current_step"] = character_data.get("current_step", 0)
-    #session["current_step"] = character_data.get("current_step", 0)
-
-
-
-
-
-
-
+    session["empathy_scores"] = character_data.get("empathy_scores", [])
+    session["plot_skeleton"] = character_data.get("plot_skeleton", [])
+    session["current_step"] = character_data.get("current_step", 0)
+    session["current_step"] = character_data.get("current_step", 0)
 
     image_url = None
     if not data.skip_image:
