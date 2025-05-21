@@ -98,6 +98,7 @@ class BookLoadRequest(BaseModel):
     story_idea: Optional[str] = None
     let_ai_decide: Optional[bool] = False
     skip_image: Optional[bool] = False
+    narrator_style: Optional[str] = "neutral"  # <-- ✅ add this line
 
 
 # Books and worlds created and saved
@@ -136,8 +137,8 @@ def create_chapter_summary_and_story(character_name: str, genre: str,
 
     # Filter out /game and user inputs
     #story_lines = [
-       # line for line in history if not line.strip().startswith(">")
-       # and not line.strip().lower().startswith("/game")
+    # line for line in history if not line.strip().startswith(">")
+    # and not line.strip().lower().startswith("/game")
     #]
     #full_log = "\n".join(story_lines)
     full_log = history
@@ -208,15 +209,15 @@ def save_chapter_to_book(book_title: str, character_name: str, summary: str,
     #filtered_history = []
     #skip_next = False
     #for line in history:
-       # if line.strip().lower().startswith("/game") or skip_next:
-        #    skip_next = not skip_next
-        #    continue
-       # filtered_history.append(line)
+    # if line.strip().lower().startswith("/game") or skip_next:
+    #    skip_next = not skip_next
+    #    continue
+    # filtered_history.append(line)
 
-   # full_log = "\n".join(filtered_history)
+# full_log = "\n".join(filtered_history)
 
-    # Get third-person version
-    # Removed filtered history, just using full history
+# Get third-person version
+# Removed filtered history, just using full history
     prompt_rewrite = (
         f"Rewrite the following story log as a third-person limited past-tense narrative. "
         f"The protagonist is named {character_name}. Genre: {genre}. "
@@ -568,8 +569,6 @@ def generate_story(genre, user_input=None, character_name=None):
     book_title = session.get("book", {}).get("title", "")
     should_wrap_up = session.get("ready_to_end", False)
 
-
-
     # Retrieve current plot step from skeleton
     #plot_step = ""
     skeleton = session.get("plot_skeleton", {})
@@ -581,22 +580,18 @@ def generate_story(genre, user_input=None, character_name=None):
         session["plot_skeleton"] = skeleton
         session["story_framework"] = skeleton
 
-
     #step_key = str(step + 1)  # Because your keys are "1", "2", etc.
     print("📋 skeleton keys:", list(skeleton.keys()))
     print("🔢 current step:", step)
     print("📦 Type of skeleton:", type(skeleton))
     print("📋 Full skeleton contents:", skeleton)
 
-
-
     #plot_step is always blank in the print.  Need to understand why the dictionary isn't being accessed properly.
-    plot_step = skeleton.get(step +1, "")
+    plot_step = skeleton.get(step + 1, "")
     print(f"🎬 Using plot step {step +1}: {plot_step}")
 
-
-
-
+    #Add a narrator attitude/style to the story
+    narrator_style = session.get("narrator_style", "neutral")
 
     #NPC loads their relationship to user's characters
     npc_memories = load_npc_memory(book_title, character_name)
@@ -657,6 +652,7 @@ def generate_story(genre, user_input=None, character_name=None):
                 f"{idea_part} Start with cinematic sensory detail. End with a dramatic decision or question."
                 f"Begin with a cinematic opening — a scene full of tension, color, and implied conflict. Introduce at least one thing that seems off, suspicious, or dangerous. "
                 f"Include micro details that make the world specific and memorable. End with a dramatic choice or uncomfortable question."
+                f"You write with a narrator style of: {narrator_style}."
                 f"{previously}"  # <-- added here to help the AI avoid past storylines
             )
 
@@ -665,18 +661,18 @@ def generate_story(genre, user_input=None, character_name=None):
         prompt = (
             f"This is an ongoing {genre} story. The character's name is {character_name}. "
             f"Use immersive second-person narration. Previous context:\n{history}\n"
-            f"Current story goal:\n{plot_step}, this is meant to be the plot you're organically targeting.\n\n" #plot skeleton add
+            f"Current story goal:\n{plot_step}, this is meant to be the plot you're organically targeting.\n\n"  #plot skeleton add
             f"The player says: '{user_input}'. DO NOT start the story with this idea, but gradually build to it.  Continue the story and end with a prompt."
-        )
+            f"You write with a narrator style of: {narrator_style}.")
         if should_wrap_up:
             prompt += (
-            "\n\n⚠️ Important: This is the final stage of the story. Begin resolving major conflicts. "
-            "Guide the narrative to a meaningful, emotional conclusion. "
-            "If the story is approaching the final act, you must prioritize narrative closure. Begin resolving major plotlines, allow the character to succeed or fail meaningfully, and guide the story to a full, emotionally satisfying ending.\n"
-            "Do not invent new conflicts once the story is ready to end."
-            "When appropriate, write the final line of the story and end with 'End of Chapter.'"
-            "DO NOT prompt what the user wants to do after that, the final text sent to user is 'End of Chapter.'"
-    )
+                "\n\n⚠️ Important: This is the final stage of the story. Begin resolving major conflicts. "
+                "Guide the narrative to a meaningful, emotional conclusion. "
+                "If the story is approaching the final act, you must prioritize narrative closure. Begin resolving major plotlines, allow the character to succeed or fail meaningfully, and guide the story to a full, emotionally satisfying ending.\n"
+                "Do not invent new conflicts once the story is ready to end."
+                "When appropriate, write the final line of the story and end with 'End of Chapter.'"
+                "DO NOT prompt what the user wants to do after that, the final text sent to user is 'End of Chapter.'"
+            )
 
     #debug step if should_wrap_up is working
     if should_wrap_up:
@@ -712,19 +708,19 @@ def generate_story(genre, user_input=None, character_name=None):
              "Some decisions should be open-ended (e.g., 'Where do you want to search?' or 'What do you want to say?').\n"
              "At every scene's end, ask the player what they want to do next."
              f"\n\nNPCs in this world remember past interactions. Here are their current memories:\n{npc_memory_text}"
-
              )
         }, {
             "role": "user",
             "content": prompt
         }],
         temperature=0.9,
-        max_tokens=550,
+        max_tokens=600,
         presence_penalty=1.2,  # Encourage novelty
         frequency_penalty=0.2  # Reduce exact repetition
     )
 
     return response.choices[0].message.content
+
 
 def handle_game_command(command: str) -> str:
     command = command.lower()
@@ -929,7 +925,8 @@ def editor_enhance_story(raw_story: str, genre: str,
 
 
 #create plot outline to give users ability to return to same spot and give AI structure to story
-def generate_plot_skeleton(genre: str, character_name: str, story_idea: str) -> dict:
+def generate_plot_skeleton(genre: str, character_name: str,
+                           story_idea: str) -> dict:
     prompt = (
         f"You are a master storyteller. Create a 7-step structured plot skeleton for a chapter in a story. "
         f"The genre is {genre}, and the main character is {character_name}. "
@@ -968,7 +965,6 @@ def generate_plot_skeleton(genre: str, character_name: str, story_idea: str) -> 
         return {}
 
 
-
 #to advance the skeleton to the next plot point for saves and story structure
 def maybe_advance_plot_step(story_text: str):
     try:
@@ -977,8 +973,6 @@ def maybe_advance_plot_step(story_text: str):
         total_steps = len(framework)
         print(f"step: {step}")
         print(f"framework: {len(framework)}")
-
-
 
         if total_steps == 0:
             print("⚠️ No plot skeleton defined.")
@@ -1005,7 +999,10 @@ Reply ONLY with "Yes" or "No". No explanation.
 
         step_response = client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": step_check_prompt}],
+            messages=[{
+                "role": "user",
+                "content": step_check_prompt
+            }],
             temperature=0.3,
             max_tokens=10,
         )
@@ -1029,14 +1026,6 @@ Reply ONLY with "Yes" or "No". No explanation.
 
     except Exception as e:
         print("❌ Error in maybe_advance_plot_step:", e)
-
-
-
-
-
-
-
-
 
 
 # Start new story — generate image and return intro + image
@@ -1220,10 +1209,8 @@ def continue_story(data: ContinueRequest):
                 character_data["trait_scores"] = {}
             character_data["trait_scores"].setdefault(trait, []).append(score)
 
-
             #test to see if they're being recorded
             print(f"{trait}: {score}")
-
 
     #skeleton outline point save in character data
     character_data["current_step"] = session.get("current_step", 0)
@@ -1320,28 +1307,27 @@ def load_book_route(data: BookLoadRequest):
     # Load or create character and their inventory
 
     character_data = create_or_load_character(
-    book_title=data.title,
-    character_name=data.character_name,
-    genre=book["genre"],
-    description=data.character_description or ""
-)
+        book_title=data.title,
+        character_name=data.character_name,
+        genre=book["genre"],
+        description=data.character_description or "")
 
     # 🧱 Generate new plot skeleton for fresh character
     #if not character_data.get("plot_skeleton"):  # Only generate if not already present
 
     #It should regenerate a new outline every time you log in.
-    skeleton = generate_plot_skeleton(book["genre"], data.character_name, data.story_idea or "")
+    skeleton = generate_plot_skeleton(book["genre"], data.character_name,
+                                      data.story_idea or "")
     session["plot_skeleton"] = skeleton
     session["story_framework"] = skeleton
     session["current_step"] = 0
     #else:
-        # If already exists, load it into session
-        #session["plot_skeleton"] = character_data["plot_skeleton"]
-        #session["story_framework"] = character_data["plot_skeleton"]
-        #session["current_step"] = character_data.get("current_step", 0)
+    # If already exists, load it into session
+    #session["plot_skeleton"] = character_data["plot_skeleton"]
+    #session["story_framework"] = character_data["plot_skeleton"]
+    #session["current_step"] = character_data.get("current_step", 0)
 
     print("🧠 Plot skeleton loaded:", session["plot_skeleton"])
-
 
     # Store session
     session["genre"] = book["genre"]
@@ -1355,17 +1341,11 @@ def load_book_route(data: BookLoadRequest):
     session["story_idea"] = data.story_idea or ""
     session["let_ai_decide"] = data.let_ai_decide
     session["character"] = character_data
-    session["empathy_scores"] = character_data.get("empathy_scores", []) 
+    session["empathy_scores"] = character_data.get("empathy_scores", [])
     #session["plot_skeleton"] = character_data.get("plot_skeleton", [])
     #session["current_step"] = character_data.get("current_step", 0)
     #session["current_step"] = character_data.get("current_step", 0)
-
-
-
-
-
-
-
+    session["narrator_style"] = data.narrator_style
 
     image_url = None
     if not data.skip_image:
@@ -1416,10 +1396,10 @@ def export_story():
     #filtered_history = []
     #skip_next = False
     #for line in history:
-        #if line.strip().lower().startswith("/game") or skip_next:
-            #skip_next = not skip_next  # Skip the AI's system response too
-            #continue
-        #filtered_history.append(line)
+    #if line.strip().lower().startswith("/game") or skip_next:
+    #skip_next = not skip_next  # Skip the AI's system response too
+    #continue
+    #filtered_history.append(line)
 
     #full_log = "\n".join(filtered_history)
 
@@ -1498,7 +1478,8 @@ def get_chapters(book_title: str):
 @app.get("/export-chapter/{book_title}/{chapter_index}")
 def export_chapter(book_title: str, chapter_index: int):
     book = load_book_data(book_title)
-    if not book or "chapters" not in book or chapter_index >= len(book["chapters"]):
+    if not book or "chapters" not in book or chapter_index >= len(
+            book["chapters"]):
         raise HTTPException(status_code=404, detail="Chapter not found")
 
     chapter = book["chapters"][chapter_index]
@@ -1513,16 +1494,19 @@ def export_chapter(book_title: str, chapter_index: int):
         f"Only include what {character_name} could reasonably know or perceive. "
         f"Describe other characters’ actions and dialogue in vivid, cinematic prose. "
         f"Remove second-person references and reframe as polished storybook prose.\n\n"
-        f"{story_text}"
-    )
+        f"{story_text}")
 
     try:
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{
+                "role": "user",
+                "content": prompt
+            }],
             temperature=0.7,
         )
-        rewritten_story = response.choices[0].message.content.strip() if response.choices[0].message.content else ""
+        rewritten_story = response.choices[0].message.content.strip(
+        ) if response.choices[0].message.content else ""
     except Exception as e:
         print("GPT rewrite failed:", e)
         rewritten_story = story_text  # fallback
@@ -1768,6 +1752,42 @@ Story Context:
     except Exception as e:
         print("Failed to parse traits:", e)
         return {}
+
+@app.get("/export-book/{book_title}")
+def export_entire_book(book_title: str):
+    book = load_book_data(book_title)
+    if not book or "chapters" not in book or not book["chapters"]:
+        raise HTTPException(status_code=404, detail="No chapters found.")
+
+    doc = Document()
+
+    # Title page
+    doc.add_heading(book["title"], level=0)
+    doc.add_paragraph(f"Genre: {book.get('genre', 'Unknown')}")
+    doc.add_paragraph()  # Spacer
+
+    # All chapters
+    for idx, chapter in enumerate(book["chapters"]):
+        doc.add_page_break()
+        doc.add_heading(f"Chapter {idx + 1}", level=1)
+        doc.add_paragraph(f"Main Character: {chapter.get('character', 'Unknown')}")
+        doc.add_paragraph(f"Summary: {chapter.get('summary', '')}")
+        doc.add_paragraph()  # Spacer
+
+        for para in chapter.get("story", "").split("\n\n"):
+            p = doc.add_paragraph(para.strip())
+            p.style.font.size = Pt(12)
+            p.style.font.name = 'Georgia'
+
+    # Save file
+    safe_title = book_title.replace(" ", "_")
+    filename = f"{safe_title}_Full_Book.docx"
+    filepath = os.path.join("exports", filename)
+    os.makedirs("exports", exist_ok=True)
+    doc.save(filepath)
+
+    return FileResponse(filepath, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", filename=filename)
+
 
 
 if __name__ == "__main__":
