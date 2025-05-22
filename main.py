@@ -652,7 +652,7 @@ def generate_story(genre, user_input=None, character_name=None):
                 f"{idea_part} Start with cinematic sensory detail. End with a dramatic decision or question."
                 f"Begin with a cinematic opening — a scene full of tension, color, and implied conflict. Introduce at least one thing that seems off, suspicious, or dangerous. "
                 f"Include micro details that make the world specific and memorable. End with a dramatic choice or uncomfortable question."
-                f"You write with a narrator style of: {narrator_style}."
+                #f"You write with a narrator style of: {narrator_style}."
                 f"{previously}"  # <-- added here to help the AI avoid past storylines
             )
 
@@ -663,7 +663,7 @@ def generate_story(genre, user_input=None, character_name=None):
             f"Use immersive second-person narration. Previous context:\n{history}\n"
             f"Current story goal:\n{plot_step}, this is meant to be the plot you're organically targeting.\n\n"  #plot skeleton add
             f"The player says: '{user_input}'. DO NOT start the story with this idea, but gradually build to it.  Continue the story and end with a prompt."
-            f"You write with a narrator style of: {narrator_style}.")
+            #f"You write with a narrator style of: {narrator_style}.")
         if should_wrap_up:
             prompt += (
                 "\n\n⚠️ Important: This is the final stage of the story. Begin resolving major conflicts. "
