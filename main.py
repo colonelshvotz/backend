@@ -582,7 +582,7 @@ def generate_story(genre, user_input=None, character_name=None):
 
     #step_key = str(step + 1)  # Because your keys are "1", "2", etc.
     print("📋 skeleton keys:", list(skeleton.keys()))
-    print("🔢 current step:", step)
+    console.log("🔢 current step:", step)
     print("📦 Type of skeleton:", type(skeleton))
     print("📋 Full skeleton contents:", skeleton)
 
@@ -644,26 +644,31 @@ def generate_story(genre, user_input=None, character_name=None):
                 f"Introduce a crime, a few suspicious characters, and build toward a trail of clues and red herrings. "
                 f"{idea_part} End with a question or moment of uncertainty, driving curiosity and analysis."
                 f"{previously}")
-        else:
 
+        #beginning story
+        else:
             prompt = (
                 f"You are beginning an immersive, second-person interactive story in the genre '{genre}'. "
                 f"The main character’s name is {character_name}, but narration should use 'you' and stay in second-person. "
                 f"{idea_part} Start with cinematic sensory detail. End with a dramatic decision or question."
-                f"Begin with a cinematic opening — a scene full of tension, color, and implied conflict. Introduce at least one thing that seems off, suspicious, or dangerous. "
+                f"Begin with a cinematic opening — a scene full of tension, color, and implied conflict. Introduce or continue at least one thing that seems off, suspicious, or dangerous. "
                 f"Include micro details that make the world specific and memorable. End with a dramatic choice or uncomfortable question."
-                #f"You write with a narrator style of: {narrator_style}."
+                f"Your character should have a personality, you should be: {narrator_style}."
                 f"{previously}"  # <-- added here to help the AI avoid past storylines
             )
-
+    #continue story with user prompt
     else:
         history = "\n".join(session["history"][-5:])
         prompt = (
             f"This is an ongoing {genre} story. The character's name is {character_name}. "
             f"Use immersive second-person narration. Previous context:\n{history}\n"
             f"Current story goal:\n{plot_step}, this is meant to be the plot you're organically targeting.\n\n"  #plot skeleton add
-            f"The player says: '{user_input}'. DO NOT start the story with this idea, but gradually build to it.  Continue the story and end with a prompt."
-            #f"You write with a narrator style of: {narrator_style}.")
+            f"The player says: '{user_input}'." 
+            #f"DO NOT start the story with this idea, but gradually build to it."  
+            f"Continue the story and end with a prompt."
+            f"Your character should have a personality, you should be: {narrator_style}."
+        )
+        
         if should_wrap_up:
             prompt += (
                 "\n\n⚠️ Important: This is the final stage of the story. Begin resolving major conflicts. "
@@ -671,7 +676,7 @@ def generate_story(genre, user_input=None, character_name=None):
                 "If the story is approaching the final act, you must prioritize narrative closure. Begin resolving major plotlines, allow the character to succeed or fail meaningfully, and guide the story to a full, emotionally satisfying ending.\n"
                 "Do not invent new conflicts once the story is ready to end."
                 "When appropriate, write the final line of the story and end with 'End of Chapter.'"
-                "DO NOT prompt what the user wants to do after that, the final text sent to user is 'End of Chapter.'"
+                "DO NOT prompt what the user wants to do after that, the final text sent to user needs to LITERALLY BE 'End of Chapter.'"
             )
 
     #debug step if should_wrap_up is working
@@ -714,9 +719,9 @@ def generate_story(genre, user_input=None, character_name=None):
             "content": prompt
         }],
         temperature=0.9,
-        max_tokens=600,
-        presence_penalty=1.2,  # Encourage novelty
-        frequency_penalty=0.2  # Reduce exact repetition
+        #max_tokens=600,
+        #presence_penalty=1.2,  # Encourage novelty
+        #frequency_penalty=0.2  # Reduce exact repetition
     )
 
     return response.choices[0].message.content
