@@ -582,7 +582,7 @@ def generate_story(genre, user_input=None, character_name=None):
 
     #step_key = str(step + 1)  # Because your keys are "1", "2", etc.
     print("📋 skeleton keys:", list(skeleton.keys()))
-    console.log("🔢 current step:", step)
+    print("🔢 current step:", step)
     print("📦 Type of skeleton:", type(skeleton))
     print("📋 Full skeleton contents:", skeleton)
 
