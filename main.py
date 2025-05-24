@@ -63,6 +63,18 @@ async def root():
         ]
     }
 
+#For print functions to work in Chrome
+@app.get("/debug-data")
+async def get_debug_data():
+    return {
+        "session_data": {
+            "genre": session.get("genre"),
+            "character_name": session.get("character_name"),
+            "current_step": session.get("current_step"),
+            "plot_skeleton": session.get("plot_skeleton"),
+            "history_length": len(session.get("history", [])),
+        }
+    }
 
 # Simple session storage
 session = {
