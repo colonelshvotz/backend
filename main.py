@@ -969,7 +969,9 @@ def generate_plot_skeleton(genre: str, character_name: str,
     try:
         content = response.choices[0].message.content
         if content:
-            raw_json = json.loads(content.strip())
+            # Clean the content by removing markdown code blocks if present
+            cleaned_content = content.replace("```json", "").replace("```", "").strip()
+            raw_json = json.loads(cleaned_content)
         else:
             # Handle the case where content is None
             raw_json = {}  # or some default/fallback logic
@@ -1810,16 +1812,16 @@ def export_entire_book(book_title: str):
 
     return FileResponse(filepath, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", filename=filename)
 
-#backend test
-skeleton = generate_plot_skeleton("Sci-Fi", "Bob",
-      "")
-session["plot_skeleton"] = skeleton
-session["story_framework"] = skeleton
-session["current_step"] = 0
+#backend test in Replit console for print() debug lines
+#skeleton = generate_plot_skeleton("Sci-Fi", "Bob",
+#      "")
+#session["plot_skeleton"] = skeleton
+#session["story_framework"] = skeleton
+#session["current_step"] = 0
 
-print("🧠 Plot skeleton loaded:", session["plot_skeleton"])
-story1=generate_story("Sci-Fi", "", "Bob")
-maybe_advance_plot_step(story1)
+#print("🧠 Plot skeleton loaded:", session["plot_skeleton"])
+#story1=generate_story("Sci-Fi", "", "Bob")
+#maybe_advance_plot_step(story1)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
