@@ -963,11 +963,16 @@ def generate_plot_skeleton(genre: str, character_name: str,
         temperature=0.7,
     )
 
-    raw = response.choices[0].message.content.strip()
+    raw = response.choices[0].message.content.strip() if response.choices[0].message.content else ""
     print("🧾 Raw GPT output:", raw)
 
     try:
-        raw_json = json.loads(response.choices[0].message.content.strip())
+        content = response.choices[0].message.content
+        if content:
+            raw_json = json.loads(content.strip())
+        else:
+            # Handle the case where content is None
+            raw_json = {}  # or some default/fallback logic
 
         # Convert keys from strings to integers
         skeleton_dict = {int(k): v for k, v in raw_json.items()}
@@ -1805,7 +1810,16 @@ def export_entire_book(book_title: str):
 
     return FileResponse(filepath, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", filename=filename)
 
+#backend test
+skeleton = generate_plot_skeleton("Sci-Fi", "Bob",
+      "")
+session["plot_skeleton"] = skeleton
+session["story_framework"] = skeleton
+session["current_step"] = 0
 
+print("🧠 Plot skeleton loaded:", session["plot_skeleton"])
+story1=generate_story("Sci-Fi", "", "Bob")
+maybe_advance_plot_step(story1)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
